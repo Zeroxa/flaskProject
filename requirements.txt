@@ -1,0 +1,10 @@
+Flask
+pandas
+numpy
+requests
+sentence-transformers
+scikit-learn
+nltk
+torch
+transformers
+gunicorn
