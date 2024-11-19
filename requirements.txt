@@ -6,5 +6,6 @@ sentence-transformers
 scikit-learn
 nltk
 torch
+torchvision
 transformers
 gunicorn
