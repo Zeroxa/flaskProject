@@ -76,7 +76,7 @@ embeddings_combined = np.hstack((embeddings, orig_lang_array))
 # Compute the cosine similarity matrix
 cosine_sim_matrix = cosine_similarity(embeddings_combined)
 
-API_KEY = 'ad91a5a135df4c09d36b5739aaa31242'
+API_KEY = os.environ.get('TMDB_API_KEY')
 BASE_URL = 'https://api.themoviedb.org/3'
 IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500'
 
@@ -180,4 +180,4 @@ def index():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
