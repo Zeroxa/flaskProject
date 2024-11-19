@@ -1,0 +1,17 @@
+# Python-related
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+
+# Virtual environment
+venv/
+env/
+
+# PyCharm-related
+.idea/
+
+# Other
+*.log
+*.sqlite3
+*.DS_Store
