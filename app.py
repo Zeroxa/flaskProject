@@ -6,13 +6,11 @@ import os
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
-import torch
-import torchvision
-import huggingface_hub
 import transformers
 import sentence_transformers
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+
 
 app = Flask(__name__)
 
