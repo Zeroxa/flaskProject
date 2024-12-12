@@ -11,6 +11,8 @@ import sentence_transformers
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
+# New imports for fuzzy searching
+from rapidfuzz import process, fuzz
 
 app = Flask(__name__)
 
@@ -18,63 +20,46 @@ data = pd.read_csv('imdb_movies.csv')
 
 movies = data[['names', 'date_x', 'score', 'genre', 'overview', 'crew', 'orig_lang']]
 
-
 def create_tags(row):
     tags = []
     tags.append(str(row['genre']))
     tags.append(str(row['overview']))
     tags.append(str(row['crew']))
-    # Exclude 'date_x' and 'score' as they are numerical
     return " ".join(tags)
 
-
-# Apply the function to create a new 'tags' column
 movies['tags'] = movies.apply(create_tags, axis=1)
-
-# Lowercase the text and remove punctuation
 movies['tags'] = movies['tags'].str.lower().str.replace('[^\w\s]', '', regex=True)
-
-# Remove rows with NaN 'tags' and convert 'tags' to string
 movies = movies.dropna(subset=['tags']).reset_index(drop=True)
 movies['tags'] = movies['tags'].astype(str)
 
 nltk.download('stopwords')
-
 stop_words = set(stopwords.words('english'))
 ps = PorterStemmer()
 
-
 def preprocess_text(text):
-    # Tokenize
     words = text.split()
-    # Remove stop words and stem
     words = [ps.stem(word) for word in words if word not in stop_words]
-    # Rejoin words
     return ' '.join(words)
 
-
 movies['tags'] = movies['tags'].apply(preprocess_text)
+
+# Create a lowercase column for movie names for case-insensitive matching
+movies['names_lower'] = movies['names'].str.lower()
 
 # Load the Sentence-BERT model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Compute embeddings for all tags at once
 tags_list = movies['tags'].tolist()
 embeddings = model.encode(tags_list, convert_to_numpy=True, show_progress_bar=True)
 
-# One-hot encode 'orig_lang'
 orig_lang_encoded = pd.get_dummies(movies['orig_lang'], prefix='lang')
-
-# Convert to NumPy array
 orig_lang_array = orig_lang_encoded.values
 
-# Combine text embeddings with 'orig_lang' one-hot encodings
 embeddings_combined = np.hstack((embeddings, orig_lang_array))
 
-# Compute the cosine similarity matrix
 cosine_sim_matrix = cosine_similarity(embeddings_combined)
 
-API_KEY = os.environ.get('TMDB_API_KEY')
+API_KEY = 'ad91a5a135df4c09d36b5739aaa31242'
 BASE_URL = 'https://api.themoviedb.org/3'
 IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500'
 
@@ -92,9 +77,11 @@ def search_movie(movie_name, year=None):
         response.raise_for_status()
         data = response.json()
         if data.get('results'):
+            # Try exact match first
             for result in data['results']:
                 if result['title'].lower() == movie_name.lower():
                     return result
+            # If no exact match, return the first result
             return data['results'][0]
         else:
             return None
@@ -145,8 +132,18 @@ def recommend_movies_with_posters(idx, top_n=5):
 
 
 def get_recommendations(movie_name, top_n=5):
-    if movie_name in movies['names'].values:
-        idx = movies.index[movies['names'] == movie_name][0]
+    movie_name_lower = movie_name.lower().strip()
+
+    # Use fuzzy search to find the closest title match in movies['names_lower']
+    best_match = process.extractOne(movie_name_lower, movies['names_lower'].values, scorer=fuzz.WRatio)
+
+    # Check if we got a good match
+    # 'best_match' is a tuple: (matched_string, score, index)
+    # 'score' ranges from 0 to 100; adjust threshold as needed
+    if best_match and best_match[1] > 70:
+        matched_name = best_match[0]
+        # Find index of the matched movie
+        idx = movies.index[movies['names_lower'] == matched_name][0]
         recommendations = recommend_movies_with_posters(idx, top_n)
         result = []
         for _, row in recommendations.iterrows():
@@ -178,4 +175,5 @@ def index():
 
 
 if __name__ == '__main__':
+    # Remember to run: pip install rapidfuzz before starting
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
